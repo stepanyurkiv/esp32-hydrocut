@@ -1,0 +1,58 @@
+menu "Homekit Configuration"
+
+    config HOMEKIT_USE_HARDCODED_SETUP_CODE
+        bool "Use hard-coded setup code"
+        default y
+        help
+            HomeKit does not recommend having the setup code programmed in the accessory as is.
+            Instead, it expects setup info (salt-verifier pair) generated for the given setup code.
+            Use this option only for testing purposes. For production, the setup info should be
+            used.
+
+    config HOMEKIT_SETUP_CODE
+        string "HomeKit Setup Code"
+        default "111-22-333"
+        depends on HOMEKIT_USE_HARDCODED_SETUP_CODE
+        help
+            Setup code to be used for HomeKot pairing, if hard-coded setup code is enabled.
+
+    config HOMEKIT_SETUP_ID
+        string "HomeKit Setup Id"
+        default "ES32"
+        depends on HOMEKIT_USE_HARDCODED_SETUP_CODE
+        help
+            Setup id to be used for HomeKot pairing, if hard-coded setup code is enabled.
+
+endmenu
+
+menu "Hydrocut Status Configuration"
+    config HCSTATUS_URL
+        string "HC Status URL"
+        help
+            URL to get the trail status. Must have a json item is status.
+
+    config HC_TEMP_CHANNEL_URL
+        string "HC Temperature Channel URL"
+        help
+            URL to get the Hydrocut trail status.
+
+    config HC_CHARGECONTROLER_CHANNEL_URL
+        string "HC Charge Controller Channel URL"
+        help
+            URL to get the Hydrocut trail status.
+            
+    config HC_CLOSED_LED_GPIO
+        int "Closed Status LED GPIO"
+        range 3 33
+        default 14
+        help
+            GPIO for closed status LED
+
+    config HC_OPEN_LED_GPIO
+        int "Open Status LED GPIO"
+        range 3 33
+        default 12
+        help
+            GPIO for open status LED
+            
+endmenu
