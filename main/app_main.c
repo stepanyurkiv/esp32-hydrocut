@@ -25,6 +25,7 @@
 #include <app_hap_setup_payload.h>
 #include "homekit_states.h"
 #include "hydrocut_client.h"
+#include "led.h"
 
 static const char *TAG = "HAP";
 
@@ -121,6 +122,22 @@ static void hydrocut_hap_event_handler(void* arg, esp_event_base_t event_base, i
     }
 }
 
+static int hydrocut_ground_read(hap_char_t *hc, hap_status_t *status_code, void *serv_priv, void *read_priv)
+{
+    if (hap_req_get_ctrl_id(read_priv)) {
+        ESP_LOGI(TAG, "HC ground sensor received read from %s", hap_req_get_ctrl_id(read_priv));
+    }
+    if (!strcmp(hap_char_get_type_uuid(hc), HAP_CHAR_UUID_CURRENT_TEMPERATURE)) 
+    {
+        hap_val_t new_val;
+        new_val.f = get_hc_ground_temp();
+        hap_char_update_val(hc, &new_val);
+        *status_code = HAP_STATUS_SUCCESS;
+        ESP_LOGI(TAG,"hydrocut ground temp status updated to %0.01f", new_val.f);
+    }
+    return HAP_SUCCESS;
+}
+
 /* 
  * In an actual accessory, this should read from hardware.
  * Read routines are generally not required as the value is available with th HAP core
@@ -133,16 +150,39 @@ static int hydrocut_read(hap_char_t *hc, hap_status_t *status_code, void *serv_p
     if (hap_req_get_ctrl_id(read_priv)) {
         ESP_LOGI(TAG, "HC sensor received read from %s", hap_req_get_ctrl_id(read_priv));
     }
-
+    if (!strcmp(hap_char_get_type_uuid(hc), HAP_CHAR_UUID_CURRENT_TEMPERATURE)) 
+    {
+        hap_val_t new_val;
+        new_val.f = get_hc_air_temp();
+        hap_char_update_val(hc, &new_val);
+        *status_code = HAP_STATUS_SUCCESS;
+        ESP_LOGI(TAG,"hydrocut ait temp status updated to %0.01f", new_val.f);
+    }
     // Only update the sensor info on a temperature read since they are read one after another
     if (!strcmp(hap_char_get_type_uuid(hc), HAP_CHAR_UUID_CONTACT_SENSOR_STATE)) 
     {
         hap_val_t new_val;
-
         new_val.i = get_hc_status();
         hap_char_update_val(hc, &new_val);
         *status_code = HAP_STATUS_SUCCESS;
         ESP_LOGI(TAG,"hydrocut status updated to %s", contact_state_string(new_val.i));
+    }
+    if (!strcmp(hap_char_get_type_uuid(hc), HAP_CHAR_UUID_BATTERY_LEVEL)) 
+    {
+        hap_val_t new_val;
+        new_val.i = get_hc_soc();
+        hap_char_update_val(hc, &new_val);
+        *status_code = HAP_STATUS_SUCCESS;
+        ESP_LOGI(TAG, "hydrocut battery level updated to %d", new_val.i);
+    }
+    if (!strcmp(hap_char_get_type_uuid(hc), HAP_CHAR_UUID_STATUS_LOW_BATTERY)) 
+    {
+        hap_val_t new_val;
+        uint16_t battery_level = get_hc_soc();
+        new_val.i = (battery_level<40)?1:0;
+        hap_char_update_val(hc, &new_val);
+        *status_code = HAP_STATUS_SUCCESS;
+        ESP_LOGI(TAG, "hydrocut battery low level updated to %d (%s)", new_val.i, new_val.i?"low battery":"battery ok");
     }
     return HAP_SUCCESS;
 }
@@ -153,7 +193,10 @@ static int hydrocut_read(hap_char_t *hc, hap_status_t *status_code, void *serv_p
 static void hydrocut_thread_entry(void *p)
 {
     hap_acc_t *hydrocutaccessory = NULL;
-    hap_serv_t *hydrocutservice = NULL;
+    hap_serv_t *contactservice = NULL;
+    hap_serv_t *airtempservice = NULL;
+    hap_serv_t *groundtempservice = NULL;
+    hap_serv_t *battery_service = NULL;
 
     /* Configure HomeKit core to make the Accessory name (and thus the WAC SSID) unique,
      * instead of the default configuration wherein only the WAC SSID is made unique.
@@ -175,7 +218,7 @@ static void hydrocut_thread_entry(void *p)
         .name = "Esp-Hydrocut",
         .manufacturer = "Espressif",
         .model = "EspHydrocut01",
-        .serial_num = "001122334455",
+        .serial_num = "001122334457",
         .fw_rev = "1.0.0",
         .hw_rev =  (char*)esp_get_idf_version(),
         .pv = "1.0.0",
@@ -190,14 +233,39 @@ static void hydrocut_thread_entry(void *p)
     uint8_t product_data[] = {'E','S','P','3','2','H','A','P'};
     hap_acc_add_product_data(hydrocutaccessory, product_data, sizeof(product_data));
 
-    ESP_LOGI(TAG, "Creating Hydrocut service...");
+    ESP_LOGI(TAG, "Creating Hydrocut open/close service...");
     /* Create the temp Service. Include the "name" since this is a user visible service  */
-    hydrocutservice = hap_serv_contact_sensor_create(get_hc_status());
-    hap_serv_add_char(hydrocutservice, hap_char_name_create("ESP Hydrocut Status Sensor"));
+    contactservice = hap_serv_contact_sensor_create(CONTACT_DETECTED);
+    hap_serv_add_char(contactservice, hap_char_name_create("Hydrocut Status Sensor"));
     /* Set the read callback for the service (optional) */
-    hap_serv_set_read_cb(hydrocutservice, hydrocut_read);
+    hap_serv_set_read_cb(contactservice, hydrocut_read);
     /* Add the Garage Service to the Accessory Object */
-    hap_acc_add_serv(hydrocutaccessory, hydrocutservice);
+    hap_acc_add_serv(hydrocutaccessory, contactservice);
+
+    ESP_LOGI(TAG, "Creating Hydrocut air temperture service");
+    /* Create the temp Service. Include the "name" since this is a user visible service  */
+    airtempservice = hap_serv_temperature_sensor_create(0.0);
+    hap_serv_add_char(airtempservice, hap_char_name_create("Hydrocut Air Temperature Sensor"));
+    /* Set the read callback for the service (optional) */
+    hap_serv_set_read_cb(airtempservice, hydrocut_read);
+    /* Add the Garage Service to the Accessory Object */
+    hap_acc_add_serv(hydrocutaccessory, airtempservice);
+
+    ESP_LOGI(TAG, "Creating Hydrocut ground temperture service");
+    /* Create the temp Service. Include the "name" since this is a user visible service  */
+    groundtempservice = hap_serv_temperature_sensor_create(0.0);
+    hap_serv_add_char(groundtempservice, hap_char_name_create("Hydrocut Ground Temperature Sensor"));
+    /* Set the read callback for the service (optional) */
+    hap_serv_set_read_cb(groundtempservice, hydrocut_ground_read);
+    /* Add the Garage Service to the Accessory Object */
+    hap_acc_add_serv(hydrocutaccessory, groundtempservice);
+
+    ESP_LOGI(TAG, "Creating battery service");
+    // Create the CloseIf switch
+    battery_service = hap_serv_battery_service_create(50, 0, 1);
+    hap_serv_add_char(battery_service, hap_char_name_create("Hydrocut Battery Level"));
+    hap_serv_set_read_cb(battery_service, hydrocut_read);
+    hap_acc_add_serv(hydrocutaccessory, battery_service);
 
 #if 0
     /* Create the Firmware Upgrade HomeKit Custom Service.
@@ -267,6 +335,8 @@ static void hydrocut_thread_entry(void *p)
     
     ESP_LOGI(TAG, "HAP initialization complete.");
 
+    hydrocut_client_start();
+
     /* The task ends here. The read/write callbacks will be invoked by the HAP Framework */
     vTaskDelete(NULL);
 }
@@ -284,17 +354,11 @@ void app_main()
     esp_log_level_set("TRANSPORT", ESP_LOG_VERBOSE);
     esp_log_level_set("OUTBOX", ESP_LOG_VERBOSE);
 
+    // Configure LEDs and turn them both on to indicate we are alive
+    configure_led();
+    led_both();
+
     ESP_LOGI(TAG, "[APP] Creating main thread...");
 
-#ifdef TEST_CLIENT
-    ESP_LOGI(TAG, "Starting WIFI...");
-    /* Initialize Wi-Fi */
-    app_wifi_init();
-    /* Start Wi-Fi */
-    app_wifi_start(portMAX_DELAY);
-    const char *status = get_hc_status();
-    ESP_LOGI(TAG, "Got status: %s", status);
-#else
     xTaskCreate(hydrocut_thread_entry, hydrocut_TASK_NAME, hydrocut_TASK_STACKSIZE, NULL, hydrocut_TASK_PRIORITY, NULL);
-#endif
 }

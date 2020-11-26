@@ -31,15 +31,41 @@ menu "Hydrocut Status Configuration"
         help
             URL to get the trail status. Must have a json item is status.
 
-    config HC_TEMP_CHANNEL_URL
-        string "HC Temperature Channel URL"
+    config HC_AIR_TEMP_CHANNEL_URL
+        string "HC Air Temperature Channel URL"
         help
             URL to get the Hydrocut trail status.
+
+    config HC_AIR_TEMP_CHANNEL_FIELD_NUM
+        int "Hydrocut Air Temperature Field Number"
+        range 1 4
+        default 3
+        help
+            Hydrocut Air Temperature Field Number
+
+    config HC_GROUND_TEMP_CHANNEL_URL
+        string "HC Ground Temperature Channel URL"
+        help
+            URL to get the Hydrocut Ground temp status.
+
+    config HC_GROUND_TEMP_CHANNEL_FIELD_NUM
+        int "Hydrocut Ground Temperature Field Number"
+        range 1 8
+        default 2
+        help
+            Hydrocut Ground Temperature Field Number
 
     config HC_CHARGECONTROLER_CHANNEL_URL
         string "HC Charge Controller Channel URL"
         help
             URL to get the Hydrocut trail status.
+
+    config HC_CHARGECONTROLER_SOC_FIELD_NUM
+        int "Charge Controller State of Charge Field Num"
+        range 1 8
+        default 7
+        help
+            Charge Controller State of Charge Field Num in the JSON object
             
     config HC_CLOSED_LED_GPIO
         int "Closed Status LED GPIO"
@@ -54,5 +80,19 @@ menu "Hydrocut Status Configuration"
         default 12
         help
             GPIO for open status LED
+
+    config HC_STATUS_TIMEOUT
+        int "Number of seconds to wait before updating HC status"
+        range 30 400
+        default 60
+        help
+            Number of seconds to wait before updating HC status
+
+    config HC_TEST_MODE
+        bool "Enables Second thread for status update"
+        default false
+        help
+            By default, when homekit asks for an update, we reach out and get it. For testing
+            purposes, enable this item to put the updates in a background thread.
             
 endmenu
