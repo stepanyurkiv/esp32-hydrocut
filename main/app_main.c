@@ -21,7 +21,7 @@
 //#include <hap_fw_upgrade.h>
 #include <iot_button.h>
 
-#include <app_wifi.h>
+#include <wifi.h>
 #include <app_hap_setup_payload.h>
 #include "homekit_states.h"
 #include "hydrocut_client.h"
@@ -322,17 +322,10 @@ static void hydrocut_thread_entry(void *p)
     /* mfi is not supported */
     hap_enable_mfi_auth(HAP_MFI_AUTH_NONE);
 
-    ESP_LOGI(TAG, "Starting WIFI...");
-    /* Initialize Wi-Fi */
-    app_wifi_init();
-
     /* After all the initializations are done, start the HAP core */
     ESP_LOGI(TAG, "Starting HAP...");
     hap_start();
 
-    /* Start Wi-Fi */
-    app_wifi_start(portMAX_DELAY);
-    
     ESP_LOGI(TAG, "HAP initialization complete.");
 
     hydrocut_client_start();
@@ -357,6 +350,10 @@ void app_main()
     // Configure LEDs and turn them both on to indicate we are alive
     configure_led();
     led_both();
+
+    // Configuring WIFI
+    wifi_setup();
+    wifi_connect();
 
     ESP_LOGI(TAG, "[APP] Creating main thread...");
 

@@ -9,6 +9,7 @@
 #include <esp_log.h>
 #include <esp_http_client.h>
 
+#include <wifi.h>
 #include "homekit_states.h"
 #include "hydrocut_client.h"
 #include "led.h"
@@ -16,7 +17,7 @@
 
 static const char *TAG = "HCCLIENT";
 
-#ifdef CONFIG_HC_TEST_MODE    
+#ifdef CONFIG_HC_SECOND_THREAD  
 static const uint16_t hydrocut_client_TASK_PRIORITY = 5;
 static const uint16_t hydrocut_client_TASK_STACKSIZE = 4 * 1024;
 static const char *hydrocut_client_TASK_NAME = "hydrocut_client";
@@ -246,7 +247,7 @@ static void update_ground_temp(void)
 
 uint8_t get_hc_status(void)
 {
-#ifndef CONFIG_HC_TEST_MODE    
+#ifndef CONFIG_HC_SECOND_THREAD    
     update_hc_status();
 #endif
     return (hydrocut_status);
@@ -254,7 +255,7 @@ uint8_t get_hc_status(void)
 
 uint16_t get_hc_soc(void)
 {
-#ifndef CONFIG_HC_TEST_MODE    
+#ifndef CONFIG_HC_SECOND_THREAD    
     update_pv_status();
 #endif
     return (hydrocut_soc);
@@ -262,7 +263,7 @@ uint16_t get_hc_soc(void)
 
 float get_hc_ground_temp(void)
 {
-#ifndef CONFIG_HC_TEST_MODE    
+#ifndef CONFIG_HC_SECOND_THREAD    
     update_ground_temp();
 #endif
     return (hydrocut_ground_temp);
@@ -270,16 +271,18 @@ float get_hc_ground_temp(void)
 
 float get_hc_air_temp(void)
 {
-#ifndef CONFIG_HC_TEST_MODE    
+#ifndef CONFIG_HC_SECOND_THREAD    
     update_air_temp();
 #endif
     return (hydrocut_air_temp);
 }
 
-#ifdef CONFIG_HC_TEST_MODE    
+#ifdef CONFIG_HC_SECOND_THREAD    
 static void hydrocut_client_thread_entry(void *p)
 {
     const uint16_t delay =  (CONFIG_HC_STATUS_TIMEOUT*1000) / portTICK_PERIOD_MS;
+
+    wifi_waitforconnect();
     while (1)
     {
         update_hc_status();
@@ -293,7 +296,7 @@ static void hydrocut_client_thread_entry(void *p)
 
 void hydrocut_client_start(void)
 {
-#ifdef CONFIG_HC_TEST_MODE    
+#ifdef CONFIG_HC_SECOND_THREAD    
     xTaskCreate(hydrocut_client_thread_entry, hydrocut_client_TASK_NAME, hydrocut_client_TASK_STACKSIZE, NULL, hydrocut_client_TASK_PRIORITY, NULL);
 #endif
 }

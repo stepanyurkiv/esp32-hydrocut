@@ -17,7 +17,12 @@ else()
   message(ERROR "Homekit path is not valid: HOMEKIT_PATH=" ${HOMEKIT_PATH})
 endif()
 
-set(EXTRA_COMPONENT_DIRS ${HOMEKIT_PATH}/components ${HOMEKIT_PATH}/components/homekit ${HOMEKIT_PATH}/examples/common)
+set(EXTRA_COMPONENT_DIRS 
+    ${HOMEKIT_PATH}/components
+    ${HOMEKIT_PATH}/components/homekit
+    ${HOMEKIT_PATH}/examples/common/app_hap_setup_payload
+    ${HOMEKIT_PATH}/examples/common/qrcode
+    )
 
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)

@@ -84,15 +84,15 @@ menu "Hydrocut Status Configuration"
     config HC_STATUS_TIMEOUT
         int "Number of seconds to wait before updating HC status"
         range 30 400
-        default 60
+        default 120
         help
             Number of seconds to wait before updating HC status
 
-    config HC_TEST_MODE
+    config HC_SECOND_THREAD
         bool "Enables Second thread for status update"
-        default false
+        default true
         help
-            By default, when homekit asks for an update, we reach out and get it. For testing
-            purposes, enable this item to put the updates in a background thread.
+            By default, when homekit asks for an update, we reach out and get it. However, this can be slow and result
+            in timeouts. Enable this item to put the updates in a background thread.
             
 endmenu
